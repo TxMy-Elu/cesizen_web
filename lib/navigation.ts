@@ -16,7 +16,6 @@ export const secondaryNavigation: NavigationItem[] = [
   { label: "Connexion", href: "/auth/connexion" },
   { label: "Inscription", href: "/auth/inscription" },
   { label: "Contact", href: "/contact" },
-  { label: "Admin", href: "/admin" },
 ]
 
 export const legalNavigation: NavigationItem[] = [
