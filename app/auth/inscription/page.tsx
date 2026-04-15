@@ -2,14 +2,19 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { useMutation } from "@tanstack/react-query"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
+import { authApi } from "@/lib/api/services"
+import { saveSession } from "@/lib/auth/session"
 import { toast } from "sonner"
 
 export default function InscriptionPage() {
+  const router = useRouter()
   const [form, setForm] = useState({
     nom: "",
     prenom: "",
@@ -17,6 +22,23 @@ export default function InscriptionPage() {
     password: "",
   })
   const [consent, setConsent] = useState(false)
+
+  const registerMutation = useMutation({
+    mutationFn: authApi.register,
+    onSuccess: (data) => {
+      saveSession(data)
+      toast.success("Compte cree", {
+        description: `Bienvenue ${data.prenom}`,
+      })
+      setForm({ nom: "", prenom: "", email: "", password: "" })
+      setConsent(false)
+      router.push("/profil")
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : "Inscription impossible"
+      toast.error(message)
+    },
+  })
 
   const submit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -28,16 +50,17 @@ export default function InscriptionPage() {
       toast.error("Consentement RGPD obligatoire")
       return
     }
-    toast.success("Compte cree en mode simulation", {
-      description: `Bienvenue ${form.prenom}`,
+    registerMutation.mutate({
+      nom: form.nom.trim(),
+      prenom: form.prenom.trim(),
+      email: form.email.trim(),
+      password: form.password,
     })
-    setForm({ nom: "", prenom: "", email: "", password: "" })
-    setConsent(false)
   }
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10 md:px-8 md:py-14">
-      <Card className="border-surface-border bg-linear-to-br from-surface-strong via-brand-sage-50/60 to-brand-sand-50/70">
+      <Card className="border-surface-border bg-surface-strong shadow-soft">
         <CardHeader className="space-y-3">
           <CardTitle className="text-3xl">Inscription</CardTitle>
           <CardDescription className="text-base">
@@ -104,8 +127,8 @@ export default function InscriptionPage() {
             </span>
           </label>
 
-          <Button className="w-full" size="lg" type="submit">
-            Créer mon compte
+          <Button className="w-full" size="lg" type="submit" disabled={registerMutation.isPending}>
+            {registerMutation.isPending ? "Creation..." : "Créer mon compte"}
           </Button>
 
           <p className="text-sm text-muted-foreground">
