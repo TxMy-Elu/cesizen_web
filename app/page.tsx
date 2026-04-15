@@ -55,7 +55,7 @@ export default function Home() {
     >
       <section className="grid gap-4 lg:grid-cols-[1.35fr_0.65fr]">
         <motion.div variants={fadeInUp} transition={{ duration: 0.35 }}>
-          <Card className="overflow-hidden border-surface-border bg-linear-to-br from-surface-strong via-brand-sage-50/70 to-brand-sand-50/80">
+          <Card className="overflow-hidden border-surface-border bg-surface-strong shadow-soft">
           <CardHeader className="space-y-4">
             <p className="w-fit rounded-full border border-border/75 bg-surface-strong px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground shadow-subtle">
               Mode urgence disponible
@@ -81,7 +81,7 @@ export default function Home() {
         </motion.div>
 
         <motion.div variants={fadeInUp} transition={{ duration: 0.35, delay: 0.04 }}>
-          <Card className="border-[#e7c8bc] bg-linear-to-br from-surface-strong to-[#fff6f1]">
+          <Card className="border-surface-border bg-surface-strong shadow-soft">
           <CardHeader className="space-y-2">
             <CardTitle className="text-xl">Besoin d&apos;aide immédiate</CardTitle>
             <CardDescription>

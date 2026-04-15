@@ -1,6 +1,13 @@
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import type { HealthMetric } from "@/lib/demo-data"
+
+type HealthMetric = {
+  id: string
+  label: string
+  value: string
+  helper: string
+  status: "stable" | "warning" | "critical"
+}
 
 type HealthMetricCardProps = {
   metric: HealthMetric

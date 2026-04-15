@@ -8,7 +8,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import type { MedicationReminder } from "@/lib/demo-data"
+
+type MedicationReminder = {
+  id: string
+  name: string
+  period: string
+  dosage: string
+  schedule: string
+  state: "done" | "todo"
+}
 
 type MedicationReminderListProps = {
   reminders: MedicationReminder[]

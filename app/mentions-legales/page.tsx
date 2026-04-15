@@ -79,7 +79,7 @@ const sections = [
 export default function MentionsLegalesPage() {
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6 px-4 py-10 md:px-8 md:py-12">
-      <Card className="border border-[#7aa88a]/25 bg-linear-to-r from-white via-white to-brand-sage-50/55 shadow-subtle">
+      <Card className="border-surface-border bg-surface-strong shadow-soft">
         <CardHeader>
           <CardTitle className="text-3xl md:text-4xl">Mentions legales</CardTitle>
         </CardHeader>
@@ -87,7 +87,7 @@ export default function MentionsLegalesPage() {
 
       <div className="space-y-4">
         {sections.map((section) => (
-          <Card key={section.title} className="border border-[#7aa88a]/22 bg-surface/95 shadow-subtle">
+          <Card key={section.title} className="border-surface-border bg-surface-strong shadow-soft">
             <CardHeader>
               <CardTitle className="text-lg">{section.title}</CardTitle>
             </CardHeader>

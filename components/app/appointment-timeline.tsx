@@ -1,6 +1,14 @@
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import type { Appointment } from "@/lib/demo-data"
+
+type Appointment = {
+  id: string
+  date: string
+  hour: string
+  practitioner: string
+  specialty: string
+  status: "confirmed" | "pending"
+}
 
 type AppointmentTimelineProps = {
   appointments: Appointment[]
