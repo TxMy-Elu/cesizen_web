@@ -31,7 +31,7 @@ const sections = [
 export default function AdminPage() {
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-8 md:px-8 md:py-12">
-      <Card className="border-surface-border bg-linear-to-r from-surface-strong to-brand-sage-50/60">
+      <Card className="border-surface-border bg-surface-strong shadow-soft">
         <CardHeader className="space-y-3">
           <CardTitle className="text-3xl md:text-4xl">Back-office CESIZEN</CardTitle>
           <CardDescription className="text-base">
