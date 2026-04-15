@@ -40,9 +40,9 @@ export default function RootLayout({
           >
             Aller au contenu principal
           </a>
-          <div className="flex min-h-screen flex-col">
+          <div className="flex min-h-screen flex-col bg-background">
             <SiteHeader />
-            <main id="contenu-principal" className="flex-1">
+            <main id="contenu-principal" className="flex-1 bg-background">
               {children}
             </main>
             <SiteFooter />
