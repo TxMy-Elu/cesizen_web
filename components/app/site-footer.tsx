@@ -1,5 +1,11 @@
-import Link from "next/link"
+"use client"
 
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+
+import { Button } from "@/components/ui/button"
+import { clearSession } from "@/lib/auth/session"
+import { useSession } from "@/lib/auth/use-session"
 import { legalNavigation, secondaryNavigation } from "@/lib/navigation"
 
 const emergencyLines = [
@@ -8,13 +14,25 @@ const emergencyLines = [
   { label: "Prévention suicide", number: "3114" },
 ]
 
-const publicResources = secondaryNavigation.filter(
-  (item) => item.href !== "/admin"
-)
-
 export function SiteFooter() {
+  const router = useRouter()
+  const { session, ready } = useSession()
+  const isAuthenticated = ready && Boolean(session)
+
+  const logout = () => {
+    clearSession()
+    router.push("/")
+  }
+
+  const accountLinks = isAuthenticated
+    ? [
+        { label: "Mon profil", href: "/profil" },
+        { label: "Contact", href: "/contact" },
+      ]
+    : secondaryNavigation
+
   return (
-    <footer className="border-t border-border/70 bg-linear-to-b from-surface to-surface-muted/70">
+    <footer className="border-t border-border/70 bg-surface">
       <div className="mx-auto grid w-full max-w-7xl gap-8 px-4 py-10 md:grid-cols-2 md:px-8 lg:grid-cols-[1.25fr_1fr_1fr_1fr]">
         <section className="space-y-4">
           <p className="text-sm font-bold tracking-wide text-brand-dark">CESIZEN</p>
@@ -32,7 +50,7 @@ export function SiteFooter() {
             Ressources
           </p>
           <div className="flex flex-col gap-2">
-            {publicResources.map((item) => (
+            {accountLinks.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -41,6 +59,16 @@ export function SiteFooter() {
                 {item.label}
               </Link>
             ))}
+            {isAuthenticated ? (
+              <Button
+                type="button"
+                variant="link"
+                className="h-auto w-fit justify-start px-0 text-sm text-foreground/80 hover:text-primary"
+                onClick={logout}
+              >
+                Déconnexion
+              </Button>
+            ) : null}
           </div>
         </nav>
 
