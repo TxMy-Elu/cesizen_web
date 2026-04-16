@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { Suspense, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useMutation, useQuery } from "@tanstack/react-query"
@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input"
 import { authApi } from "@/lib/api/services"
 import { toast } from "sonner"
 
-export default function ResetMotDePassePage() {
+function ResetMotDePasseContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const token = searchParams.get("token")?.trim() ?? ""
@@ -182,6 +182,27 @@ export default function ResetMotDePassePage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function ResetMotDePassePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto w-full max-w-3xl px-4 py-10 md:px-8 md:py-14">
+          <Card className="border-surface-border bg-surface-strong shadow-soft">
+            <CardContent className="py-8">
+              <Alert variant="soft">
+                <AlertTitle>Chargement</AlertTitle>
+                <AlertDescription>Un instant, nous preparons la page.</AlertDescription>
+              </Alert>
+            </CardContent>
+          </Card>
+        </div>
+      }
+    >
+      <ResetMotDePasseContent />
+    </Suspense>
   )
 }
 
