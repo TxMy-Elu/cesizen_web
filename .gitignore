@@ -58,6 +58,7 @@ Desktop.ini
 *.md
 !README.md
 !**/README.md
+!docs/**
 
 # SCripts
 *.sh
