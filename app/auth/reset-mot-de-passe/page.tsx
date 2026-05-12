@@ -57,7 +57,7 @@ function ResetMotDePasseContent() {
         <CardHeader className="space-y-3">
           <CardTitle className="text-3xl">Reinitialiser le mot de passe</CardTitle>
           <CardDescription className="text-base">
-            Parcours aligne avec l&apos;API : /api/auth/forgot-password, /api/auth/reset-password/validate et /api/auth/reset-password.
+            Saisissez votre email pour recevoir un lien de réinitialisation, ou définissez un nouveau mot de passe si vous avez déjà reçu le lien.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -101,6 +101,17 @@ function ResetMotDePasseContent() {
                       value={newPassword}
                       onChange={(event) => setNewPassword(event.target.value)}
                     />
+                    <ul className="space-y-1 text-xs text-muted-foreground">
+                      <li className={newPassword.length >= 6 ? "text-green-600" : ""}>
+                        {newPassword.length >= 6 ? "✓" : "•"} 6 caractères minimum
+                      </li>
+                      <li className={/[0-9]/.test(newPassword) ? "text-green-600" : ""}>
+                        {/[0-9]/.test(newPassword) ? "✓" : "•"} 1 chiffre minimum
+                      </li>
+                      <li className={/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?]/.test(newPassword) ? "text-green-600" : ""}>
+                        {/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?]/.test(newPassword) ? "✓" : "•"} 1 caractère spécial minimum
+                      </li>
+                    </ul>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-brand-dark" htmlFor="confirm-password">

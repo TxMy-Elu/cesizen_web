@@ -6,12 +6,21 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
+import { MediaDownloadButton } from "@/components/app/media-download-button"
 import { articleApi, categorieApi } from "@/lib/api/services"
 import { getSession } from "@/lib/auth/session"
 import type { ArticleCreateDto, ArticleDto } from "@/lib/api/contracts"
+import { deleteSupabaseFile, getMediaUrl, isSupabaseUrl } from "@/lib/supabase"
 import { toast } from "sonner"
 
 const defaultTag = "Stress"
@@ -21,54 +30,57 @@ export default function AdminContenusPage() {
   const token = session?.token ?? null
   const queryClient = useQueryClient()
 
-  const [selectedId, setSelectedId] = useState<number | null>(null)
-  const [editingId, setEditingId] = useState<number | null>(null)
+  // ── Modales ──────────────────────────────────────────────
+  const [previewArticle, setPreviewArticle] = useState<ArticleDto | null>(null)
+  const [editArticle, setEditArticle] = useState<ArticleDto | null>(null)
 
+  // ── Formulaire création ───────────────────────────────────
   const [newTitle, setNewTitle] = useState("")
   const [newTag, setNewTag] = useState(defaultTag)
   const [newContent, setNewContent] = useState("")
   const [newAttachment, setNewAttachment] = useState<File | null>(null)
-
   const [newCategory, setNewCategory] = useState("")
 
+  // ── Formulaire édition ────────────────────────────────────
   const [editTitle, setEditTitle] = useState("")
   const [editTag, setEditTag] = useState(defaultTag)
   const [editContent, setEditContent] = useState("")
   const [editAttachment, setEditAttachment] = useState<File | null>(null)
   const [removeEditAttachment, setRemoveEditAttachment] = useState(false)
 
-  const categoriesQuery = useQuery({
-    queryKey: ["admin", "categories"],
-    queryFn: categorieApi.list,
-  })
-
-  const articlesQuery = useQuery({
-    queryKey: ["admin", "articles"],
-    queryFn: articleApi.list,
-  })
+  // ── Queries ───────────────────────────────────────────────
+  const categoriesQuery = useQuery({ queryKey: ["admin", "categories"], queryFn: categorieApi.list })
+  const articlesQuery = useQuery({ queryKey: ["admin", "articles"], queryFn: articleApi.list })
 
   const categories = useMemo(() => {
-    const labels = categoriesQuery.data?.map((item) => item.libelle) ?? []
-    if (labels.length === 0) {
-      return [defaultTag]
-    }
-    return labels
+    const labels = categoriesQuery.data?.map((c) => c.libelle) ?? []
+    return labels.length === 0 ? [defaultTag] : labels
   }, [categoriesQuery.data])
 
-  const selectedArticle = useMemo(
-    () => articlesQuery.data?.find((item) => item.idArticle === selectedId) ?? null,
-    [articlesQuery.data, selectedId]
-  )
+  const publishedCount = (articlesQuery.data ?? []).filter((r) => r.estPublie).length
 
+  // ── Ouvrir la modale d'édition ────────────────────────────
+  const openEdit = (article: ArticleDto) => {
+    setEditArticle(article)
+    setEditTitle(article.titre)
+    setEditTag(article.categorieLibelle)
+    setEditContent(article.contenu)
+    setEditAttachment(null)
+    setRemoveEditAttachment(false)
+  }
+
+  const closeEdit = () => {
+    setEditArticle(null)
+    setEditAttachment(null)
+    setRemoveEditAttachment(false)
+  }
+
+  // ── Mutations ─────────────────────────────────────────────
   const createCategoryMutation = useMutation({
     mutationFn: async () => {
-      if (!token) {
-        throw new Error("Connexion admin requise")
-      }
+      if (!token) throw new Error("Connexion admin requise")
       const value = newCategory.trim()
-      if (!value) {
-        throw new Error("Categorie invalide")
-      }
+      if (!value) throw new Error("Categorie invalide")
       return categorieApi.create({ libelle: value, description: `Categorie ${value}` }, token)
     },
     onSuccess: () => {
@@ -76,24 +88,28 @@ export default function AdminContenusPage() {
       queryClient.invalidateQueries({ queryKey: ["admin", "categories"] })
       toast.success("Categorie ajoutee")
     },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "Erreur categorie")
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erreur categorie"),
+  })
+
+  const deleteCategoryMutation = useMutation({
+    mutationFn: async (idCategorie: number) => {
+      if (!token) throw new Error("Connexion admin requise")
+      return categorieApi.remove(idCategorie, token)
     },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "categories"] })
+      queryClient.invalidateQueries({ queryKey: ["admin", "articles"] })
+      toast.success("Categorie supprimee")
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erreur suppression categorie"),
   })
 
   const createArticleMutation = useMutation({
     mutationFn: async () => {
-      if (!token) {
-        throw new Error("Connexion admin requise")
-      }
-      if (!newTitle.trim() || !newContent.trim()) {
-        throw new Error("Titre et contenu requis")
-      }
-
-      const category = categoriesQuery.data?.find((item) => item.libelle === newTag)
-      if (!category) {
-        throw new Error("Categorie introuvable")
-      }
+      if (!token) throw new Error("Connexion admin requise")
+      if (!newTitle.trim() || !newContent.trim()) throw new Error("Titre et contenu requis")
+      const category = categoriesQuery.data?.find((c) => c.libelle === newTag)
+      if (!category) throw new Error("Categorie introuvable")
 
       let mediaUrl: string | null = null
       let typeMedia = "text"
@@ -103,16 +119,10 @@ export default function AdminContenusPage() {
         typeMedia = "file"
       }
 
-      const payload: ArticleCreateDto = {
-        titre: newTitle.trim(),
-        contenu: newContent.trim(),
-        typeMedia,
-        mediaUrl,
-        estPublie: false,
-        idCategorie: category.idCategorie,
-      }
-
-      return articleApi.create(payload, token)
+      return articleApi.create(
+        { titre: newTitle.trim(), contenu: newContent.trim(), typeMedia, mediaUrl, estPublie: false, idCategorie: category.idCategorie },
+        token
+      )
     },
     onSuccess: () => {
       setNewTitle("")
@@ -121,39 +131,30 @@ export default function AdminContenusPage() {
       queryClient.invalidateQueries({ queryKey: ["admin", "articles"] })
       toast.success("Article ajoute en brouillon")
     },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "Erreur creation")
-    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erreur creation"),
   })
 
   const updateArticleMutation = useMutation({
     mutationFn: async () => {
-      if (!token || !editingId) {
-        throw new Error("Connexion admin requise")
-      }
-      if (!editTitle.trim() || !editContent.trim()) {
-        throw new Error("Titre et contenu requis")
-      }
+      if (!token || !editArticle) throw new Error("Connexion admin requise")
+      if (!editTitle.trim() || !editContent.trim()) throw new Error("Titre et contenu requis")
+      const category = categoriesQuery.data?.find((c) => c.libelle === editTag)
+      if (!category) throw new Error("Categorie introuvable")
 
-      const existing = articlesQuery.data?.find((item) => item.idArticle === editingId)
-      if (!existing) {
-        throw new Error("Article introuvable")
-      }
-
-      const category = categoriesQuery.data?.find((item) => item.libelle === editTag)
-      if (!category) {
-        throw new Error("Categorie introuvable")
-      }
-
-      let mediaUrl = existing.mediaUrl
-      let typeMedia = existing.typeMedia
+      let mediaUrl = editArticle.mediaUrl
+      let typeMedia = editArticle.typeMedia
 
       if (removeEditAttachment) {
+        if (editArticle.mediaUrl && isSupabaseUrl(editArticle.mediaUrl)) {
+          await deleteSupabaseFile(editArticle.mediaUrl)
+        }
         mediaUrl = null
         typeMedia = "text"
       }
-
       if (editAttachment) {
+        if (editArticle.mediaUrl && isSupabaseUrl(editArticle.mediaUrl)) {
+          await deleteSupabaseFile(editArticle.mediaUrl)
+        }
         const upload = await articleApi.upload(editAttachment, token)
         mediaUrl = upload.url
         typeMedia = "file"
@@ -164,84 +165,57 @@ export default function AdminContenusPage() {
         contenu: editContent.trim(),
         typeMedia,
         mediaUrl,
-        estPublie: existing.estPublie,
+        estPublie: editArticle.estPublie,
         idCategorie: category.idCategorie,
       }
-
-      return articleApi.update(editingId, payload, token)
+      return articleApi.update(editArticle.idArticle, payload, token)
     },
     onSuccess: () => {
-      setEditingId(null)
-      setEditAttachment(null)
-      setRemoveEditAttachment(false)
+      closeEdit()
       queryClient.invalidateQueries({ queryKey: ["admin", "articles"] })
       toast.success("Ressource modifiee")
     },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "Erreur modification")
-    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erreur modification"),
   })
 
   const togglePublishMutation = useMutation({
     mutationFn: async (article: ArticleDto) => {
-      if (!token) {
-        throw new Error("Connexion admin requise")
-      }
-      const payload: ArticleCreateDto = {
+      if (!token) throw new Error("Connexion admin requise")
+      return articleApi.update(article.idArticle, {
         titre: article.titre,
         contenu: article.contenu,
         typeMedia: article.typeMedia,
         mediaUrl: article.mediaUrl,
         estPublie: !article.estPublie,
         idCategorie: article.idCategorie,
-      }
-      return articleApi.update(article.idArticle, payload, token)
+      }, token)
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin", "articles"] })
-    },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "Erreur publication")
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "articles"] }),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erreur publication"),
   })
 
   const deleteArticleMutation = useMutation({
-    mutationFn: async (idArticle: number) => {
-      if (!token) {
-        throw new Error("Connexion admin requise")
+    mutationFn: async (article: ArticleDto) => {
+      if (!token) throw new Error("Connexion admin requise")
+      await articleApi.remove(article.idArticle, token)
+      if (article.mediaUrl && isSupabaseUrl(article.mediaUrl)) {
+        await deleteSupabaseFile(article.mediaUrl)
       }
-      return articleApi.remove(idArticle, token)
     },
     onSuccess: () => {
-      setSelectedId(null)
-      setEditingId(null)
+      setPreviewArticle(null)
       queryClient.invalidateQueries({ queryKey: ["admin", "articles"] })
       toast.success("Article supprime")
     },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "Erreur suppression")
-    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erreur suppression"),
   })
 
-  const openEdit = (article: ArticleDto) => {
-    setSelectedId(article.idArticle)
-    setEditingId(article.idArticle)
-    setEditTitle(article.titre)
-    setEditTag(article.categorieLibelle)
-    setEditContent(article.contenu)
-    setEditAttachment(null)
-    setRemoveEditAttachment(false)
-  }
-
-  const publishedCount = (articlesQuery.data ?? []).filter((row) => row.estPublie).length
-
+  // ── Guard ─────────────────────────────────────────────────
   if (!token) {
     return (
       <div className="mx-auto w-full max-w-4xl px-4 py-10 md:px-8">
         <Card>
-          <CardHeader>
-            <CardTitle>Acces admin requis</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Acces admin requis</CardTitle></CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">
               Connectez-vous avec un compte administrateur pour gerer les contenus via l&apos;API.
@@ -254,14 +228,155 @@ export default function AdminContenusPage() {
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-8 md:px-8 md:py-12">
+
+      {/* ── Modale aperçu ───────────────────────────────────── */}
+      <Dialog open={!!previewArticle} onOpenChange={(open) => { if (!open) setPreviewArticle(null) }}>
+        <DialogContent className="max-w-2xl">
+          {previewArticle && (
+            <>
+              <DialogHeader>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">{previewArticle.categorieLibelle}</Badge>
+                  <Badge variant={previewArticle.estPublie ? "default" : "outline"}>
+                    {previewArticle.estPublie ? "Publié" : "Brouillon"}
+                  </Badge>
+                </div>
+                <DialogTitle className="mt-2 text-xl leading-snug">{previewArticle.titre}</DialogTitle>
+                {previewArticle.datePublication && (
+                  <p className="text-xs text-muted-foreground">
+                    Publié le {new Date(previewArticle.datePublication).toLocaleDateString("fr-FR")}
+                    {previewArticle.dateModification && (
+                      <> · Modifié le {new Date(previewArticle.dateModification).toLocaleDateString("fr-FR")}</>
+                    )}
+                  </p>
+                )}
+              </DialogHeader>
+
+              <div className="mt-4 max-h-64 overflow-y-auto rounded-xl border border-border/60 bg-surface p-4">
+                <p className="whitespace-pre-wrap text-sm leading-relaxed text-brand-dark/85">
+                  {previewArticle.contenu}
+                </p>
+              </div>
+
+              {previewArticle.mediaUrl && (() => {
+                const url = getMediaUrl(previewArticle.mediaUrl)
+                return url ? (
+                  <div className="mt-3">
+                    <MediaDownloadButton
+                      mediaUrl={url}
+                      filename={url.split("/").at(-1)}
+                      label="Télécharger le document joint"
+                    />
+                  </div>
+                ) : null
+              })()}
+
+              <DialogFooter className="mt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    openEdit(previewArticle)
+                    setPreviewArticle(null)
+                  }}
+                >
+                  Modifier
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => deleteArticleMutation.mutate(previewArticle)}
+                  disabled={deleteArticleMutation.isPending}
+                >
+                  {deleteArticleMutation.isPending ? "Suppression..." : "Supprimer"}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Modale édition ──────────────────────────────────── */}
+      <Dialog open={!!editArticle} onOpenChange={(open) => { if (!open) closeEdit() }}>
+        <DialogContent className="max-w-2xl">
+          {editArticle && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Modifier l&apos;article</DialogTitle>
+              </DialogHeader>
+
+              <div className="mt-4 space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-brand-dark" htmlFor="edit-title">Titre</label>
+                  <Input id="edit-title" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-brand-dark" htmlFor="edit-tag">Catégorie</label>
+                  <select
+                    id="edit-tag"
+                    value={editTag}
+                    onChange={(e) => setEditTag(e.target.value)}
+                    className="h-11 w-full rounded-xl border border-border/80 bg-surface-strong px-3 text-sm"
+                  >
+                    {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-brand-dark" htmlFor="edit-content">Contenu</label>
+                  <Textarea
+                    id="edit-content"
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    className="min-h-32"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-brand-dark">Fichier joint</p>
+                  {editArticle.mediaUrl && !removeEditAttachment ? (
+                    <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-surface px-3 py-2">
+                      <span className="flex-1 truncate text-xs text-muted-foreground">
+                        {editArticle.mediaUrl.split("/").at(-1)}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs text-destructive hover:text-destructive"
+                        onClick={() => { setEditAttachment(null); setRemoveEditAttachment(true) }}
+                      >
+                        Retirer
+                      </Button>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Aucun fichier</p>
+                  )}
+                  <Input
+                    type="file"
+                    accept=".pdf,.doc,.docx,.txt"
+                    onChange={(e) => { setEditAttachment(e.target.files?.[0] ?? null); setRemoveEditAttachment(false) }}
+                  />
+                  {editAttachment && (
+                    <p className="text-xs text-muted-foreground">Nouveau fichier : {editAttachment.name}</p>
+                  )}
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={closeEdit}>Annuler</Button>
+                <Button onClick={() => updateArticleMutation.mutate()} disabled={updateArticleMutation.isPending}>
+                  {updateArticleMutation.isPending ? "Enregistrement..." : "Enregistrer"}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Formulaire création + catégories ────────────────── */}
       <Card className="border-surface-border bg-surface-strong shadow-soft">
         <CardHeader className="space-y-3">
-          <Badge className="w-fit" variant="secondary">
-            Admin - CMS
-          </Badge>
-          <CardTitle className="text-3xl md:text-4xl">
-            Gestion du contenu preventif
-          </CardTitle>
+          <Badge className="w-fit" variant="secondary">Admin - CMS</Badge>
+          <CardTitle className="text-3xl md:text-4xl">Gestion du contenu preventif</CardTitle>
           <CardDescription className="text-base">
             Ajouter, modifier, depublier et supprimer les contenus de prevention.
           </CardDescription>
@@ -269,25 +384,17 @@ export default function AdminContenusPage() {
         <CardContent className="grid gap-4 lg:grid-cols-2">
           <div className="space-y-3 rounded-xl border border-border/75 bg-surface p-4 shadow-subtle">
             <p className="text-sm font-semibold text-brand-dark">Ajouter un article</p>
-            <Input
-              value={newTitle}
-              onChange={(event) => setNewTitle(event.target.value)}
-              placeholder="Titre"
-            />
+            <Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Titre" />
             <select
               value={newTag}
-              onChange={(event) => setNewTag(event.target.value)}
+              onChange={(e) => setNewTag(e.target.value)}
               className="h-11 w-full rounded-xl border border-border/80 bg-surface-strong px-3 text-sm"
             >
-              {categories.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
+              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
             <Textarea
               value={newContent}
-              onChange={(event) => setNewContent(event.target.value)}
+              onChange={(e) => setNewContent(e.target.value)}
               placeholder="Contenu de la fiche conseil"
             />
             <div className="space-y-2">
@@ -298,13 +405,11 @@ export default function AdminContenusPage() {
                 id="resource-file"
                 type="file"
                 accept=".pdf,.doc,.docx,.txt"
-                onChange={(event) => setNewAttachment(event.target.files?.[0] ?? null)}
+                onChange={(e) => setNewAttachment(e.target.files?.[0] ?? null)}
               />
-              {newAttachment ? (
-                <p className="text-xs text-muted-foreground">Fichier selectionne: {newAttachment.name}</p>
-              ) : (
-                <p className="text-xs text-muted-foreground">Formats acceptes: PDF, DOC, DOCX, TXT</p>
-              )}
+              <p className="text-xs text-muted-foreground">
+                {newAttachment ? `Fichier : ${newAttachment.name}` : "Formats acceptes : PDF, DOC, DOCX, TXT"}
+              </p>
             </div>
             <Button onClick={() => createArticleMutation.mutate()} disabled={createArticleMutation.isPending}>
               {createArticleMutation.isPending ? "Ajout..." : "Ajouter l'article"}
@@ -314,28 +419,46 @@ export default function AdminContenusPage() {
           <div className="space-y-3 rounded-xl border border-border/75 bg-surface p-4 shadow-subtle">
             <p className="text-sm font-semibold text-brand-dark">Categories (tags)</p>
             <div className="flex flex-wrap gap-2">
-              {categories.map((category) => (
-                <Badge key={category} variant="outline">
-                  {category}
-                </Badge>
+              {(categoriesQuery.data ?? []).map((cat) => (
+                <span
+                  key={cat.idCategorie}
+                  className="inline-flex items-center gap-1 rounded-full border border-border/75 bg-surface-strong px-2.5 py-1 text-xs font-medium text-brand-dark"
+                >
+                  {cat.libelle}
+                  {cat.libelle !== "Général" && (
+                    <button
+                      type="button"
+                      aria-label={`Supprimer ${cat.libelle}`}
+                      onClick={() => {
+                        if (window.confirm(`Supprimer la catégorie "${cat.libelle}" ?`)) {
+                          deleteCategoryMutation.mutate(cat.idCategorie)
+                        }
+                      }}
+                      className="ml-0.5 rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </span>
               ))}
             </div>
             <div className="flex gap-2">
               <Input
                 value={newCategory}
-                onChange={(event) => setNewCategory(event.target.value)}
+                onChange={(e) => setNewCategory(e.target.value)}
                 placeholder="Nouvelle categorie"
               />
               <Button variant="outline" onClick={() => createCategoryMutation.mutate()}>
                 Ajouter
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">Articles publies: {publishedCount}</p>
+            <p className="text-xs text-muted-foreground">Articles publies : {publishedCount}</p>
             {categoriesQuery.error ? <p className="text-xs text-destructive">{categoriesQuery.error.message}</p> : null}
           </div>
         </CardContent>
       </Card>
 
+      {/* ── Table articles ───────────────────────────────────── */}
       <Card>
         <CardHeader>
           <CardTitle>Articles et fiches conseils</CardTitle>
@@ -345,7 +468,7 @@ export default function AdminContenusPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Titre</TableHead>
-                <TableHead>Tags</TableHead>
+                <TableHead>Categorie</TableHead>
                 <TableHead>Fichier</TableHead>
                 <TableHead>Statut</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -357,18 +480,28 @@ export default function AdminContenusPage() {
                   <TableCell className="font-medium text-brand-dark">{row.titre}</TableCell>
                   <TableCell>{row.categorieLibelle}</TableCell>
                   <TableCell>
-                    {row.mediaUrl ? (
-                      <span className="rounded-md border border-border/75 bg-surface-strong px-2 py-1 text-xs">
-                        {row.mediaUrl.split("/").at(-1)}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Aucun fichier</span>
+                    {row.mediaUrl ? (() => {
+                      const url = getMediaUrl(row.mediaUrl)
+                      return url ? (
+                        <MediaDownloadButton
+                          mediaUrl={url}
+                          filename={url.split("/").at(-1)}
+                          label={((n) => n.length > 25 ? n.slice(0, 22) + "…" : n)(url.split("/").at(-1) ?? "Fichier")}
+                          className="h-7 text-xs"
+                        />
+                      ) : null
+                    })() : (
+                      <span className="text-xs text-muted-foreground">Aucun</span>
                     )}
                   </TableCell>
-                  <TableCell>{row.estPublie ? "Publie" : "Brouillon"}</TableCell>
+                  <TableCell>
+                    <Badge variant={row.estPublie ? "default" : "outline"} className="text-xs">
+                      {row.estPublie ? "Publie" : "Brouillon"}
+                    </Badge>
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex flex-wrap justify-end gap-2">
-                      <Button variant="outline" size="sm" onClick={() => setSelectedId(row.idArticle)}>
+                      <Button variant="outline" size="sm" onClick={() => setPreviewArticle(row)}>
                         Voir
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => openEdit(row)}>
@@ -377,7 +510,7 @@ export default function AdminContenusPage() {
                       <Button variant="outline" size="sm" onClick={() => togglePublishMutation.mutate(row)}>
                         {row.estPublie ? "Depublier" : "Publier"}
                       </Button>
-                      <Button variant="destructive" size="sm" onClick={() => deleteArticleMutation.mutate(row.idArticle)}>
+                      <Button variant="destructive" size="sm" onClick={() => deleteArticleMutation.mutate(row)}>
                         Supprimer
                       </Button>
                     </div>
@@ -390,100 +523,6 @@ export default function AdminContenusPage() {
           {articlesQuery.error ? <p className="mt-3 text-xs text-destructive">{articlesQuery.error.message}</p> : null}
         </CardContent>
       </Card>
-
-      {selectedArticle ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {editingId === selectedArticle.idArticle ? "Modifier la ressource" : "Voir la ressource"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {editingId === selectedArticle.idArticle ? (
-              <>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-brand-dark" htmlFor="edit-title">
-                    Titre
-                  </label>
-                  <Input id="edit-title" value={editTitle} onChange={(event) => setEditTitle(event.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-brand-dark" htmlFor="edit-tag">
-                    Categorie
-                  </label>
-                  <select
-                    id="edit-tag"
-                    value={editTag}
-                    onChange={(event) => setEditTag(event.target.value)}
-                    className="h-11 w-full rounded-xl border border-border/80 bg-surface-strong px-3 text-sm"
-                  >
-                    {categories.map((category) => (
-                      <option key={category} value={category}>
-                        {category}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-brand-dark" htmlFor="edit-content">
-                    Contenu
-                  </label>
-                  <Textarea id="edit-content" value={editContent} onChange={(event) => setEditContent(event.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-brand-dark">Fichier actuel</p>
-                  <p className="text-sm text-muted-foreground">{selectedArticle.mediaUrl ?? "Aucun fichier"}</p>
-                  <Input
-                    type="file"
-                    accept=".pdf,.doc,.docx,.txt"
-                    onChange={(event) => {
-                      setEditAttachment(event.target.files?.[0] ?? null)
-                      setRemoveEditAttachment(false)
-                    }}
-                  />
-                  <Button
-                    variant="outline"
-                    type="button"
-                    onClick={() => {
-                      setEditAttachment(null)
-                      setRemoveEditAttachment(true)
-                      toast.success("Fichier retire en attente d'enregistrement")
-                    }}
-                  >
-                    Retirer le fichier
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button onClick={() => updateArticleMutation.mutate()} disabled={updateArticleMutation.isPending}>
-                    {updateArticleMutation.isPending ? "Enregistrement..." : "Enregistrer les changements"}
-                  </Button>
-                  <Button variant="outline" onClick={() => setEditingId(null)}>
-                    Annuler
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="rounded-xl border border-border/75 bg-surface p-4 text-sm">
-                  <p className="font-semibold text-brand-dark">Titre</p>
-                  <p className="mt-1 text-muted-foreground">{selectedArticle.titre}</p>
-                </div>
-                <div className="rounded-xl border border-border/75 bg-surface p-4 text-sm">
-                  <p className="font-semibold text-brand-dark">Categorie</p>
-                  <p className="mt-1 text-muted-foreground">{selectedArticle.categorieLibelle}</p>
-                </div>
-                <div className="rounded-xl border border-border/75 bg-surface p-4 text-sm">
-                  <p className="font-semibold text-brand-dark">Contenu</p>
-                  <p className="mt-1 whitespace-pre-wrap text-muted-foreground">{selectedArticle.contenu}</p>
-                </div>
-                <Button variant="outline" onClick={() => openEdit(selectedArticle)}>
-                  Modifier cette ressource
-                </Button>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      ) : null}
     </div>
   )
 }

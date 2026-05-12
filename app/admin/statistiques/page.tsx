@@ -140,24 +140,24 @@ export default function AdminStatistiquesPage() {
     const completionRate = Math.min(100, Math.round((sessionsLast7Days / (activeUsers * 2 || 1)) * 100))
 
     const stats = [
-      { label: "Utilisateurs actifs", value: String(activeUsers), description: "GET /api/user/list (active=true)" },
-      { label: "Sessions (7 jours)", value: String(sessionsLast7Days), description: "GET /api/exercer/list" },
-      { label: "Cycle moyen", value: `${averageCycleSeconds}s`, description: "Jointure /api/exercer + /api/exercice" },
+      { label: "Utilisateurs actifs", value: String(activeUsers), description: "Comptes avec statut actif" },
+      { label: "Sessions (7 jours)", value: String(sessionsLast7Days), description: "Séances de respiration cette semaine" },
+      { label: "Cycle moyen", value: `${averageCycleSeconds}s`, description: "Durée moyenne inspiration + apnée + expiration" },
     ]
 
     const rows = [
-      { metric: "Sessions sur 30 jours", value: String(sessionsLast30Days), source: "GET /api/exercer/list" },
+      { metric: "Sessions sur 30 jours", value: String(sessionsLast30Days), source: "Séances de respiration" },
       {
         metric: "Moyenne sessions par utilisateur actif",
         value: averageSessionsPerActiveUser,
-        source: "Sessions30 / utilisateurs actifs",
+        source: "Calculé sur les 30 derniers jours",
       },
-      { metric: "Vues prevention (30 jours)", value: String(viewsLast30Days), source: "GET /api/consulter/list" },
-      { metric: "Articles prevention uniques", value: String(uniqueArticlesLast30Days), source: "Distinct idArticle" },
-      { metric: "Taux de connexion reussie", value: `${successRate}%`, source: "GET /api/log-connexion/list" },
-      { metric: "Logs activite CREATE", value: String(createCount), source: "GET /api/log-activite/list" },
-      { metric: "Logs activite UPDATE", value: String(updateCount), source: "GET /api/log-activite/list" },
-      { metric: "Logs activite DELETE", value: String(deleteCount), source: "GET /api/log-activite/list" },
+      { metric: "Vues prévention (30 jours)", value: String(viewsLast30Days), source: "Consultations d'articles" },
+      { metric: "Articles prévention uniques", value: String(uniqueArticlesLast30Days), source: "Articles distincts consultés" },
+      { metric: "Taux de connexion réussie", value: `${successRate}%`, source: "Historique des authentifications" },
+      { metric: "Actions de création", value: String(createCount), source: "Journal d'activité" },
+      { metric: "Actions de modification", value: String(updateCount), source: "Journal d'activité" },
+      { metric: "Actions de suppression", value: String(deleteCount), source: "Journal d'activité" },
     ]
 
     return {
@@ -258,7 +258,7 @@ export default function AdminStatistiquesPage() {
               <ChartColumn className="h-4 w-4 text-primary" />
               Sessions respiration (7 jours)
             </CardTitle>
-            <CardDescription>Aggregation journaliere issue de /api/exercer/list</CardDescription>
+            <CardDescription>Nombre de séances complétées par jour</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-7 items-end gap-2">
@@ -284,7 +284,7 @@ export default function AdminStatistiquesPage() {
               <Eye className="h-4 w-4 text-primary" />
               Consultations prevention (7 jours)
             </CardTitle>
-            <CardDescription>Aggregation journaliere issue de /api/consulter/list</CardDescription>
+            <CardDescription>Nombre d'articles consultés par jour</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-7 items-end gap-2">
@@ -353,7 +353,7 @@ export default function AdminStatistiquesPage() {
         <CardHeader>
           <CardTitle>Indicateurs detailles</CardTitle>
           <CardDescription>
-            Vue strictement agregee et anonymisee, calculee depuis les endpoints API.
+            Vue agrégée et anonymisée — aucune donnée personnelle affichée.
           </CardDescription>
         </CardHeader>
         <CardContent>

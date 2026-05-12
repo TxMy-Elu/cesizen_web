@@ -43,14 +43,7 @@ const sections = [
       "Cooperations institutionnelles (ministeres, associations, acteurs parapublics).",
     ],
   },
-  {
-    title: "Principaux concurrents",
-    items: [
-      "Sopra Steria",
-      "Capgemini",
-      "Autres ESN et integrateurs intervenant sur les marches publics numeriques.",
-    ],
-  },
+
   {
     title: "Hebergement",
     items: [

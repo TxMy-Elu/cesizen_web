@@ -46,6 +46,7 @@ export type ExerciceDto = {
   dureeInspiration: number
   dureeApnee: number
   dureeExpiration: number
+  dureeSession: number
   description: string
 }
 
