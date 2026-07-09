@@ -27,7 +27,7 @@ jobs:
       # Pas de version ici : pnpm/action-setup lit le champ "packageManager"
       # de package.json (pnpm@10.19.0), qui fait foi pour local ET CI.
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Setup Node 22
         uses: actions/setup-node@v4
