@@ -1,0 +1,67 @@
+name: CI — cesizen_web
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - 'feature/**'
+      - 'fix/**'
+      - 'hotfix/**'
+  pull_request:
+    branches:
+      - main
+      - dev
+
+jobs:
+
+  # ── Lint + Build ────────────────────────────────────────────────────────────
+  build:
+    name: Lint & Build (Node 22)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Build
+        run: pnpm build
+        env:
+          # Valeurs factices : le build a besoin que ces variables soient définies,
+          # mais aucun appel réseau n'est fait à la compilation (SSG/SSR au runtime).
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:8080
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-key
+
+  # ── Gitleaks — détection de secrets ─────────────────────────────────────────
+  gitleaks:
+    name: Gitleaks — Secret detection
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

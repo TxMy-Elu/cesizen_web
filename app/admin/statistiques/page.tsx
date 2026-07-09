@@ -284,7 +284,7 @@ export default function AdminStatistiquesPage() {
               <Eye className="h-4 w-4 text-primary" />
               Consultations prevention (7 jours)
             </CardTitle>
-            <CardDescription>Nombre d'articles consultés par jour</CardDescription>
+            <CardDescription>Nombre d&apos;articles consultés par jour</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-7 items-end gap-2">
