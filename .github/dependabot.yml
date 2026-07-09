@@ -11,6 +11,13 @@ updates:
     labels:
       - "dependencies"
       - "web"
+    ignore:
+      # Composants shadcn/ui calés sur une version précise : les MAJEURES
+      # changent l'API (ex : react-day-picker 9→10 renomme les classNames et
+      # casse components/ui/calendar.tsx). On garde patches + mineures, on migre
+      # les majeures à la main en régénérant le composant shadcn.
+      - dependency-name: "react-day-picker"
+        update-types: ["version-update:semver-major"]
     groups:
       # React et ses types doivent monter ensemble
       react:
