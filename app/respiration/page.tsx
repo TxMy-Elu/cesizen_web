@@ -55,8 +55,7 @@ export default function BreathingPage() {
 	const presets = useMemo(
 		() =>
 			(exercicesQuery.data ?? []).map((item, index) => {
-				const cycleDuration = item.dureeInspiration + item.dureeApnee + item.dureeExpiration
-				const sessionDurationSeconds = Math.max(60, cycleDuration * 18)
+				const sessionDurationSeconds = item.dureeSession ?? 120
 
 				return {
 					idExercice: item.idExercice,

@@ -1,0 +1,36 @@
+version: 2
+updates:
+
+  # Dépendances npm (front Next.js)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "web"
+    groups:
+      # React et ses types doivent monter ensemble
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
+      # Next.js et son plugin ESLint
+      next:
+        patterns:
+          - "next"
+          - "eslint-config-next"
+
+  # GitHub Actions (versions des actions utilisées)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "ci"

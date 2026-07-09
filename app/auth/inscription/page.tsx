@@ -110,9 +110,17 @@ export default function InscriptionPage() {
               value={form.password}
               onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
             />
-            <p className="text-xs text-muted-foreground">
-              Le mot de passe est haché avant stockage côté serveur.
-            </p>
+            <ul className="space-y-1 text-xs text-muted-foreground">
+              <li className={form.password.length >= 6 ? "text-green-600" : ""}>
+                {form.password.length >= 6 ? "✓" : "•"} 6 caractères minimum
+              </li>
+              <li className={/[0-9]/.test(form.password) ? "text-green-600" : ""}>
+                {/[0-9]/.test(form.password) ? "✓" : "•"} 1 chiffre minimum
+              </li>
+              <li className={/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?]/.test(form.password) ? "text-green-600" : ""}>
+                {/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?]/.test(form.password) ? "✓" : "•"} 1 caractère spécial minimum
+              </li>
+            </ul>
           </div>
 
           <label className="flex items-start gap-3 rounded-xl border border-border/75 bg-surface-strong px-4 py-3 text-sm text-foreground shadow-subtle">

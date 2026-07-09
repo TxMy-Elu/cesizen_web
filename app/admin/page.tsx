@@ -26,6 +26,11 @@ const sections = [
     description: "Gérez les rôles et les demandes RGPD (droit à l'oubli).",
     href: "/admin/utilisateurs",
   },
+  {
+    title: "Exercices de respiration",
+    description: "Créez et modifiez les exercices proposés aux utilisateurs.",
+    href: "/admin/exercices",
+  },
 ]
 
 export default function AdminPage() {

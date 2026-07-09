@@ -1,4 +1,5 @@
 import { apiRequest } from "@/lib/api/http-client"
+import { uploadMedia } from "@/lib/supabase"
 import type {
   ArticleCreateDto,
   ArticleDto,
@@ -48,15 +49,9 @@ export const articleApi = {
     apiRequest<ArticleDto>(`/api/article/${id}`, { method: "PUT", body: payload, token }),
   remove: (id: number, token: string) =>
     apiRequest<void>(`/api/article/${id}`, { method: "DELETE", token }),
-  upload: async (file: File, token: string) => {
-    const formData = new FormData()
-    formData.append("file", file)
-    return apiRequest<{ url: string; filename: string }>("/api/article/upload", {
-      method: "POST",
-      body: formData,
-      token,
-      isFormData: true,
-    })
+  upload: async (file: File, _token?: string) => {
+    const { url, originalName } = await uploadMedia(file)
+    return { url, filename: originalName }
   },
 }
 
@@ -103,6 +98,7 @@ export const userApi = {
   update: (id: number, payload: UserUpdateDto, token: string) =>
     apiRequest<UserDto>(`/api/user/${id}`, { method: "PUT", body: payload, token }),
   remove: (id: number, token: string) => apiRequest<void>(`/api/user/${id}`, { method: "DELETE", token }),
+  deleteSelf: (token: string) => apiRequest<void>("/api/user/me", { method: "DELETE", token }),
 }
 
 export const roleApi = {
