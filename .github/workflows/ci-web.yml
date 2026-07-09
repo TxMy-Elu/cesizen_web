@@ -22,7 +22,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Pas de version ici : pnpm/action-setup lit le champ "packageManager"
       # de package.json (pnpm@10.19.0), qui fait foi pour local ET CI.
