@@ -1,0 +1,58 @@
+name: CD — deploy cesizen_web
+
+# Le déploiement continu du front est assuré par l'intégration Git native de
+# Vercel : chaque push sur main est build + déployé en production automatiquement.
+#
+# Ce workflow est un déploiement de SECOURS, purement MANUEL : il permet de
+# forcer un redéploiement de la prod depuis GitHub (ex : incident Vercel, rollback
+# vers un commit précédent) sans dépendre du dashboard. Il ne se déclenche jamais
+# tout seul → aucun conflit avec l'auto-deploy Vercel.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Taper "PROD" pour confirmer le redéploiement en production'
+        required: true
+        default: ''
+
+jobs:
+
+  deploy:
+    name: Deploy — Production (Vercel, manuel)
+    runs-on: ubuntu-latest
+    environment: production
+    # Double garde-fou : variable PROD_ENABLED = true ET confirmation "PROD".
+    if: >
+      vars.PROD_ENABLED == 'true' &&
+      github.event.inputs.confirm == 'PROD'
+
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install Vercel CLI
+        run: pnpm add -g vercel@latest
+
+      # Récupère la config + les variables d'environnement Production de Vercel.
+      - name: Vercel pull (production)
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Vercel build (prod)
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Vercel deploy (production)
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}

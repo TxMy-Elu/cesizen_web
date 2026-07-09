@@ -1,0 +1,81 @@
+name: Security — CVE & secrets
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  schedule:
+    # Scan automatique chaque nuit à 2h30 UTC (décalé de l'API à 2h)
+    - cron: "30 2 * * *"
+
+permissions:
+  contents: read
+  security-events: write   # requis pour upload-sarif (onglet Security)
+  actions: read
+
+jobs:
+
+  # ── Trivy — CVE des dépendances npm + secrets + misconfig ──────────────────
+  # Pas de scan d'image Docker : le front est déployé sur Vercel, sans conteneur.
+  # Contrairement à Maven, la base d'avis npm est embarquée dans Trivy — inclure
+  # le scanner `vuln` ne déclenche aucun rate-limit réseau.
+  trivy-code:
+    name: Trivy — Dépendances & secrets
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Trivy filesystem scan — SARIF
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-fs.sarif
+          scanners: vuln,secret,misconfig
+          severity: CRITICAL,HIGH,MEDIUM
+          ignore-unfixed: true
+
+      - name: Upload SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: trivy-fs.sarif
+
+      - name: Trivy — CRITICAL & HIGH (bloquant)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: table
+          exit-code: "1"
+          scanners: vuln,secret
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+
+  # ── Gitleaks — Détection de secrets dans l'historique git ──────────────────
+  gitleaks:
+    name: Gitleaks — Secret detection
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_REPORT_FORMAT: sarif
+          GITLEAKS_REPORT_PATH: gitleaks-report.sarif
+
+      - name: Upload SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v4
+        if: always() && hashFiles('gitleaks-report.sarif') != ''
+        with:
+          sarif_file: gitleaks-report.sarif

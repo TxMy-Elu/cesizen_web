@@ -24,10 +24,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Pas de version ici : pnpm/action-setup lit le champ "packageManager"
+      # de package.json (pnpm@10.19.0), qui fait foi pour local ET CI.
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - name: Setup Node 22
         uses: actions/setup-node@v4
@@ -49,19 +49,3 @@ jobs:
           NEXT_PUBLIC_API_BASE_URL: http://localhost:8080
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-key
-
-  # ── Gitleaks — détection de secrets ─────────────────────────────────────────
-  gitleaks:
-    name: Gitleaks — Secret detection
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Gitleaks scan
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
